@@ -1,34 +1,60 @@
-require_relative '../helpers/loader.rb'
+# parse line into a command
 
-input = Loader.load(day: 8) #, override: 'day7testinput.txt')
-lines = input.split("\n")
+# decision tree
+
+# a: normal op
+# b: flip op (if nop or jmp)
+# (do b only if it hasn't been flipped)
+
+# backtrack by resetting the state
+
+require_relative '../helpers/loader'
 
 Command = Struct.new(:instruction, :num_op)
 
-commands = lines.map do |line|
-  instruction, num_op = line.split(" ")
-  Command.new(instruction, num_op.to_i)
+input = Loader.load(day: 8, override: 'day8input.txt')
+commands = input.split("\n").map do |line|
+  cmd, num = line.split(" ")
+  Command.new(cmd, num.to_i)
 end
 
-cur_idx = 0
-visited = Hash.new(0)
-acc = 0
+class Traverse
+  def initialize(commands)
+    @commands = commands
+  end
 
-while visited[cur_idx] < 1
-  cmd = commands[cur_idx]
-  visited[cur_idx] += 1
+  def dfs(idx, acc, visited, replaced)
+    pp acc
+    raise "SUCCESS #{acc}" if idx == @commands.size
 
-  case cmd.instruction
-  when 'acc'
-    acc += cmd.num_op
-    cur_idx += 1
-  when 'jmp'
-    cur_idx += cmd.num_op
-  when 'nop'
-    cur_idx += 1
-  else
-    raise "#{cmd}"
+    return if visited[idx]
+    visited[idx] = true
+
+    cmd = @commands[idx]
+    new_idx, add = solve(cmd.instruction, idx, cmd.num_op)
+    dfs(new_idx, acc + add, visited, replaced)
+
+    if cmd.instruction != 'acc' && replaced == false
+      new_idx, add = if cmd.instruction == 'nop'
+                  solve('jmp', idx, cmd.num_op)
+                else
+                  solve('nop', idx, cmd.num_op)
+                end
+
+      dfs(new_idx, acc + add, visited, true)
+    end
+  end
+
+  def solve(instruction, idx, num_op)
+    case instruction
+    when 'nop'
+      [idx + 1, 0]
+    when 'jmp'
+      [idx + num_op, 0]
+    when 'acc'
+      [idx + 1, num_op]
+    end
   end
 end
 
-puts acc
+Traverse.new(commands).dfs(0, 0, {}, false)
