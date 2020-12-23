@@ -13,44 +13,59 @@ def parse_line(line)
   }
 end
 
+Bag = Struct.new(:color, :quantity)
+
 def parse_object(desc)
   return if desc == 'no other bags'
   regex = %r{(?<num>\d) (?<col>.+) bags?}
   matched = desc.match(regex)
-  matched[:col]
+  Bag.new(matched[:col], matched[:num].to_i)
 end
 
 input = Loader.load(day: 7) #, override: 'day7testinput.txt')
 lines = input.split("\n")
 
 # reversed graph
-graph = Hash.new { |h, k| h[k] = [] }
+def make_reversed_graph(lines)
+  rev_graph = Hash.new { |h, k| h[k] = [] }
 
-lines.each do |line|
-  parsed = parse_line(line)
-  parsed[:tos].each do |to|
-    graph[to] << parsed[:from]
-  end
-end
-
-pp graph
-
-# BFS
-keyword = 'shiny gold'
-queue = graph[keyword]
-visited = { } # keyword => true }
-cnt = 0
-
-while !queue.empty?
-  shifted = queue.shift
-  cnt += 1 unless visited[shifted]
-
-  graph[shifted].each do |candidate|
-    next if visited[candidate]
-    queue.push(candidate)
+  lines.each do |line|
+    parsed = parse_line(line)
+    parsed[:tos].each do |to|
+      rev_graph[to.color] << parsed[:from]
+    end
   end
 
-  visited[shifted] = true
+  rev_graph
 end
 
-puts cnt
+def make_graph(lines)
+  graph = Hash.new { |h, k| h[k] = [] }
+
+  lines.each do |line|
+    parsed = parse_line(line)
+    parsed[:tos].each do |to|
+      graph[parsed[:from]] << to
+    end
+  end
+
+  graph
+end
+
+rev_graph = make_reversed_graph(lines)
+graph = make_graph(lines)
+
+KEYWORD = 'shiny gold'
+
+def dfs(node, coefficient, sum, graph)
+  sum += node.quantity * coefficient
+
+  graph[node.color].each do |descendent|
+    sum = dfs(descendent, node.quantity * coefficient, sum, graph)
+  end
+
+  sum
+end
+
+
+puts dfs(Bag.new(KEYWORD, 1), 1, 0, graph) - 1
